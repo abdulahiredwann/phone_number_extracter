@@ -13,7 +13,7 @@ from django.utils import timezone
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from .models import VideoProcessingTask, PhoneNumberResult
-
+# 
 
 class VideoProcessor:
     """Service class for processing videos and extracting phone numbers"""
@@ -23,6 +23,8 @@ class VideoProcessor:
         self.task = VideoProcessingTask.objects.get(id=task_id)
         self.channel_layer = get_channel_layer()
     
+
+    # Process image for better OCR results
     def preprocess_image(self, img):
         """Preprocess image for better OCR results"""
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -35,6 +37,7 @@ class VideoProcessor:
         # Morphological opening to remove noise
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1,1))
         th = cv2.morphologyEx(th, cv2.MORPH_OPEN, kernel, iterations=1)
+        # Pass the processed image to the OCR
         return th
     
     def extract_text_from_image(self, img):
@@ -72,6 +75,7 @@ class VideoProcessor:
             if phonenumbers.is_possible_number(num) and phonenumbers.is_valid_number(num):
                 e164 = phonenumbers.format_number(num, PhoneNumberFormat.E164)
                 natl = phonenumbers.format_number(num, PhoneNumberFormat.NATIONAL)
+                # Add the raw string to the hits
                 hits.append((e164, natl, match.raw_string))
         
         # If no hits, try to fix common OCR issues
@@ -99,15 +103,21 @@ class VideoProcessor:
                             part1, part2, part3 = match
                             print(f"🔍 Processing match: {part1}, {part2}, {part3}")
                             
+                            # Fix OCR errors (B → 8)
+                            part2 = part2.replace('B', '8')
+                            
                             # Try different combinations
                             candidates = [
                                 f"+972{part1}{part2}{part3}",
                                 f"+972 {part1}-{part2}-{part3}",
                                 f"+972{part1}-{part2}-{part3}",
                                 f"+972{part1}{part2}-{part3}",
-                                f"+972{part1}-{part2}{part3}"
+                                f"+972{part1}-{part2}{part3}",
+                                f"0{part1}-{part2}-{part3}",  # Israeli national format
+                                f"0{part1}{part2}{part3}"     # Israeli national format no dashes
                             ]
                             
+                            validation_failed = True
                             for candidate in candidates:
                                 try:
                                     print(f"🔍 Trying candidate: {candidate}")
@@ -117,16 +127,58 @@ class VideoProcessor:
                                         natl = phonenumbers.format_number(parsed, PhoneNumberFormat.NATIONAL)
                                         print(f"✅ Valid phone number found: {e164} ({natl})")
                                         hits.append((e164, natl, text))
+                                        validation_failed = False
                                         break
                                 except Exception as e:
                                     print(f"❌ Failed to parse {candidate}: {e}")
                                     continue
+                            
+                            # If validation failed but we have a pattern match, use fallback
+                            if validation_failed and part1.startswith('5'):
+                                e164 = f"+972{part1}{part2}{part3}"
+                                natl = f"0{part1}-{part2}-{part3}"
+                                print(f"✅ Fallback: Accepting {e164} ({natl}) as Israeli mobile (validation failed but pattern looks valid)")
+                                hits.append((e164, natl, text))
+                                break
                             
                             if hits:  # If we found a valid number, break out of pattern loop
                                 break
                     
                     if hits:  # If we found hits, break out of patterns loop
                         break
+            
+            # Strategy 2: Fallback - accept numbers that look like Israeli mobile numbers
+            if not hits and region == "IL":
+                print(f"🔍 No hits with strict validation, trying fallback for: '{text}'")
+                import re
+                
+                # Look for patterns that look like Israeli mobile numbers
+                patterns = [
+                    r'(\d{2})-?B?(\d{2})-?(\d{4})',  # 54-B52-8105
+                    r'(\d{2})-(\d{3})-(\d{4})',      # 52-268-8331
+                ]
+                
+                for pattern in patterns:
+                    matches = re.findall(pattern, text)
+                    if matches:
+                        for match in matches:
+                            if len(match) == 3:
+                                part1, part2, part3 = match
+                                # Fix OCR errors
+                                part2 = part2.replace('B', '8')
+                                
+                                # Create Israeli mobile number
+                                if part1.startswith('5'):  # Israeli mobile prefix
+                                    e164 = f"+972{part1}{part2}{part3}"
+                                    natl = f"0{part1}-{part2}-{part3}"
+                                    
+                                    # Basic validation - check if it looks like a valid Israeli mobile
+                                    if len(part1 + part2 + part3) == 9 and part1.startswith('5'):
+                                        print(f"✅ Fallback: Accepting {e164} ({natl}) as Israeli mobile")
+                                        hits.append((e164, natl, text))
+                                        break
+                        if hits:
+                            break
         
         return hits
     
@@ -193,7 +245,9 @@ class VideoProcessor:
     
     def process_video(self):
         """Main video processing function"""
+        # 
         try:
+            print("Abdu")
             print(f"\n🚀 Starting video processing for task {self.task.id}")
             print(f"📁 Video file: {self.task.video_file.name}")
             print(f"🌍 Region: {self.task.region}")

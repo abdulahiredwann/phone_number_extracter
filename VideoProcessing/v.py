@@ -7,7 +7,7 @@ from collections import defaultdict
 from pathlib import Path
 
 # === Einstellungen ===
-VIDEO_PATH = "input.mp4"          # <<-- Pfad zu deinem Video
+VIDEO_PATH = "video.mp4"          # <<-- Pfad zu deinem Video
 REGION = "IL"                     # Region für Parsing (IL=Israel). Du kannst "DE", "AT", etc. setzen.
 SAMPLE_FPS = 4                    # Wie viele Frames pro Sekunde auswerten (Tradeoff: schneller vs. gründlicher)
 MIN_CONF = 55                     # Mindest-Konfidenz (0-100) für OCR-Wörter

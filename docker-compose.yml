@@ -1,0 +1,37 @@
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:5173" # Vite dev server port
+    volumes:
+      - ./frontend:/app # Mount source code for hot reload
+      - /app/node_modules # Exclude node_modules from volume
+    depends_on:
+      - backend
+    networks:
+      - app-network
+    environment:
+      - NODE_ENV=development
+
+  backend:
+    build:
+      context: ./phone
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./phone:/app # Mount source code for hot reload
+      - ./phone/media:/app/media # Persistent media storage
+      - ./phone/db.sqlite3:/app/db.sqlite3 # Persistent database
+    environment:
+      - DEBUG=True
+      - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0,frontend
+      - DJANGO_SETTINGS_MODULE=phone.settings
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
