@@ -17,14 +17,14 @@ services:
 
   backend:
     build:
-      context: ./phone
+      context: .
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
     volumes:
-      - ./phone:/app # Mount source code for hot reload
-      - ./phone/media:/app/media # Persistent media storage
-      - ./phone/db.sqlite3:/app/db.sqlite3 # Persistent database
+      - ./phone:/app/phone # Mount source code for hot reload
+      - ./media:/app/media # Persistent media storage
+      - ./phone/db.sqlite3:/app/phone/db.sqlite3 # Persistent database
     environment:
       - DEBUG=True
       - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0,frontend

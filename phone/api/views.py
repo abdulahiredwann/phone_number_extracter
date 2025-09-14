@@ -251,6 +251,15 @@ def extract_phone_numbers(
         found = defaultdict(lambda: {"first_time": None, "frames": set(), "raw_hits": set()})
         
         def preprocess_image(img):
+            # Resize image if too small for good OCR (minimum 400px width for better results)
+            height, width = img.shape[:2]
+            if width < 400:
+                scale_factor = 400 / width
+                new_width = int(width * scale_factor)
+                new_height = int(height * scale_factor)
+                img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
+                print(f"📏 Resized image from {width}x{height} to {new_width}x{new_height} for better OCR")
+            
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
             gray = clahe.apply(gray)
@@ -272,7 +281,9 @@ def extract_phone_numbers(
                 if data is None or data.empty:
                     return []
                 
-                data = data[pd.to_numeric(data["conf"], errors="coerce").fillna(-1) >= min_confidence]
+                # Use much lower confidence threshold for better results in Docker
+                min_conf = min(min_confidence, 20)  # Use lower of 55 or 20
+                data = data[pd.to_numeric(data["conf"], errors="coerce").fillna(-1) >= min_conf]
                 lines = []
                 
                 if not data.empty:
