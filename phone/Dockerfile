@@ -18,8 +18,8 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy and install Python deps (your requirements.txt is perfect)
-COPY requirements.txt .
+# Copy and install Python deps
+COPY ../requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy project
