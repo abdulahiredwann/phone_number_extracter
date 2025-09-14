@@ -48,6 +48,7 @@ def upload_video(
     """
     Upload a video file for phone number extraction (returns task ID immediately)
     """
+    # 
     # Validate file type
     if not video.name.lower().endswith(('.mp4', '.avi', '.mov', '.mkv')):
         raise HttpError(400, "Only video files (mp4, avi, mov, mkv) are allowed")
